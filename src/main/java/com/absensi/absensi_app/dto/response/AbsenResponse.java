@@ -1,0 +1,28 @@
+package com.absensi.absensi_app.dto.response;
+
+import com.absensi.absensi_app.enums.StatusAbsensi;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class AbsenResponse {
+    private Long id;
+    private String jenis; // MASUK / PULANG
+    private LocalDateTime waktu;
+    private Double latitude;
+    private Double longitude;
+    private Double jarakDariKantor;
+    private Boolean lokasiValid;
+    private Boolean mockLocationDetected;
+    private String fotoAbsen;
+    private StatusAbsensi status;
+    private String pesan;
+    private Integer durasiKerjaMenit; // hanya untuk pulang
+}
+
