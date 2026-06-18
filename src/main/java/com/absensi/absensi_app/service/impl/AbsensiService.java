@@ -25,6 +25,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class AbsensiService {
 
     private final AbsenMasukRepository absenMasukRepository;
@@ -290,12 +291,53 @@ public class AbsensiService {
         return status;
     }
 
-    public List<AbsenMasuk> riwayatAbsenMasuk(Long userId, LocalDate dari, LocalDate sampai) {
-        return absenMasukRepository.findByUserIdAndTanggalBetweenOrderByTanggalDesc(userId, dari, sampai);
+    public List<AbsenResponse> riwayatAbsenMasuk(
+            Long userId,
+            LocalDate dari,
+            LocalDate sampai) {
+
+        return absenMasukRepository
+                .findByUserIdAndTanggalBetweenOrderByTanggalDesc(
+                        userId, dari, sampai)
+                .stream()
+                .map(absen -> AbsenResponse.builder()
+                        .id(absen.getId())
+                        .jenis("MASUK")
+                        .waktu(absen.getWaktuMasuk())
+                        .latitude(absen.getLatitude())
+                        .longitude(absen.getLongitude())
+                        .jarakDariKantor(absen.getJarakDariKantor())
+                        .lokasiValid(absen.getLokasiValid())
+                        .mockLocationDetected(absen.getMockLocationDetected())
+                        .fotoAbsen(absen.getFotoAbsen())
+                        .status(absen.getStatus())
+                        .build())
+                .toList();
     }
 
-    public List<AbsenPulang> riwayatAbsenPulang(Long userId, LocalDate dari, LocalDate sampai) {
-        return absenPulangRepository.findByUserIdAndTanggalBetweenOrderByTanggalDesc(userId, dari, sampai);
+    public List<AbsenResponse> riwayatAbsenPulang(
+            Long userId,
+            LocalDate dari,
+            LocalDate sampai) {
+
+        return absenPulangRepository
+                .findByUserIdAndTanggalBetweenOrderByTanggalDesc(
+                        userId, dari, sampai)
+                .stream()
+                .map(absen -> AbsenResponse.builder()
+                        .id(absen.getId())
+                        .jenis("PULANG")
+                        .waktu(absen.getWaktuPulang())
+                        .latitude(absen.getLatitude())
+                        .longitude(absen.getLongitude())
+                        .jarakDariKantor(absen.getJarakDariKantor())
+                        .lokasiValid(absen.getLokasiValid())
+                        .mockLocationDetected(absen.getMockLocationDetected())
+                        .fotoAbsen(absen.getFotoAbsen())
+                        .status(absen.getStatus())
+                        .durasiKerjaMenit(absen.getDurasiKerjaMenit())
+                        .build())
+                .toList();
     }
 
     // === Helper Methods ===
