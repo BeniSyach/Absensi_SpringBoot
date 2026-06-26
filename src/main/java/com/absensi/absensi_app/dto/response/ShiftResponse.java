@@ -18,5 +18,14 @@ public class ShiftResponse {
     private LocalTime jamPulang;
     private Integer toleransiTerlambat;
     private Integer toleransiPulangAwal;
+    private Boolean lintasHari;
     private Set<String> hariKerja;
+    private Boolean aktif;
+    private Long opdId;
+    private String namaOpd;
+
+    public String getLabel() {
+        String suffix = Boolean.TRUE.equals(lintasHari) ? " (lintas hari)" : "";
+        return nama + " · " + jamMasuk + " – " + jamPulang + suffix;
+    }
 }

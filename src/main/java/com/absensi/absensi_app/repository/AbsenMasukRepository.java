@@ -26,6 +26,21 @@ public interface AbsenMasukRepository extends JpaRepository<AbsenMasuk, Long>,
             "WHERE a.opd.id = :opdId AND a.tanggal = :tanggal ORDER BY a.waktuMasuk")
     List<AbsenMasuk> findByOpdIdAndTanggal(@Param("opdId") Long opdId, @Param("tanggal") LocalDate tanggal);
 
+    @Query("""
+    SELECT a FROM AbsenMasuk a
+    LEFT JOIN FETCH a.user
+    LEFT JOIN FETCH a.shift
+    LEFT JOIN FETCH a.opd
+    WHERE a.opd.id = :opdId
+      AND a.tanggal BETWEEN :dari AND :sampai
+    ORDER BY a.tanggal ASC, a.waktuMasuk ASC
+""")
+    List<AbsenMasuk> findByOpdIdAndTanggalBetween(
+            @Param("opdId") Long opdId,
+            @Param("dari") LocalDate dari,
+            @Param("sampai") LocalDate sampai
+    );
+
     @Query("SELECT COUNT(a) FROM AbsenMasuk a WHERE a.user.id = :userId " +
             "AND a.tanggal BETWEEN :dari AND :sampai")
     long countByUserIdAndPeriode(@Param("userId") Long userId,

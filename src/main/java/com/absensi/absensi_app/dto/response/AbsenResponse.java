@@ -24,5 +24,6 @@ public class AbsenResponse {
     private StatusAbsensi status;
     private String pesan;
     private Integer durasiKerjaMenit; // hanya untuk pulang
+    private UserResponse user;
 }
 

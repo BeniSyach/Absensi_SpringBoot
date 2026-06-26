@@ -248,9 +248,6 @@ public class UserService {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AbsensiException("Username sudah digunakan");
         }
-        if (userRepository.existsByNip(request.getNip())) {
-            throw new AbsensiException("NIP sudah terdaftar");
-        }
 
         Opd opd = opdRepository.findById(request.getOpdId())
                 .orElseThrow(() -> new AbsensiException("OPD tidak ditemukan"));

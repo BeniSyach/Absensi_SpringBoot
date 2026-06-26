@@ -7,7 +7,6 @@ import lombok.Data;
 public class RegisterRequest {
 
     @NotBlank(message = "NIP tidak boleh kosong")
-    @Size(min = 9, max = 20, message = "NIP harus 9-20 karakter")
     private String nip;
 
     @NotBlank(message = "Username tidak boleh kosong")

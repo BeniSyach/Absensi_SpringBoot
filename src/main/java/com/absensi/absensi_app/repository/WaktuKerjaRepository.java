@@ -21,4 +21,6 @@ public interface WaktuKerjaRepository extends JpaRepository<WaktuKerja, Long> {
             @Param("userId") Long userId,
             @Param("tanggal") LocalDate tanggal,
             @Param("hari") DayOfWeek hari);
+
+    Optional<WaktuKerja> findByShiftIdAndUserId(Long shiftId, Long userId);
 }

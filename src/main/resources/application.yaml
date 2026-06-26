@@ -1,171 +1,157 @@
-#spring:
-#  application:
-#    name: absensi-app
-#
-#  datasource:
-#    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:absensi_db}
-#    username: ${DB_USERNAME:postgres}
-#    password: ${DB_PASSWORD:postgres}
-#    driver-class-name: org.postgresql.Driver
-#    hikari:
-#      auto-commit: false
-#      maximum-pool-size: 50
-#      minimum-idle: 10
-#      connection-timeout: 10000
-#      idle-timeout: 300000
-#      max-lifetime: 900000
-#      # Tuning penting untuk spike traffic
-#      keepalive-time: 60000
-#      validation-timeout: 3000
-#      leak-detection-threshold: 15000  # Deteksi koneksi bocor setelah 15 detik
-#
-#  jpa:
-#    hibernate:
-#      ddl-auto: update
-#    show-sql: false
-#    open-in-view: false
-#    properties:
-#      hibernate:
-#        dialect: org.hibernate.dialect.PostgreSQLDialect
-#        format_sql: false
-#        jdbc:
-#          batch_size: 50
-#        order_inserts: true
-#        order_updates: true
-#        generate_statistics: false
-#
-#  data:
-#    redis:
-#      host: ${REDIS_HOST:localhost}
-#      port: ${REDIS_PORT:6379}
-#      password: ${REDIS_PASSWORD:}
-#      timeout: 1000ms
-#      lettuce:
-#        pool:
-#          enabled: true
-#          max-active: 50
-#          max-idle: 20
-#          min-idle: 10
-#          max-wait: 500ms
-#
-#  servlet:
-#    multipart:
-#      enabled: true
-#      max-file-size: 5MB
-#      max-request-size: 7MB
-#      file-size-threshold: 1MB
-#
-#  cache:
-#    type: redis
-#    redis:
-#      time-to-live: 300000
-#
-#  task:
-#    execution:
-#      pool:
-#        core-size: 20
-#        max-size: 100
-#        queue-capacity: 1000
-#        keep-alive: 60s
-#      thread-name-prefix: "async-"
-#    scheduling:
-#      pool:
-#        size: 5
-#
-#server:
-#  port: 8080
-#  compression:
-#    enabled: true
-#    mime-types: application/json,application/xml,text/html,text/plain
-#  tomcat:
-#    threads:
-#      max: 400
-#      min-spare: 50
-#    accept-count: 200
-#    connection-timeout: 10000
-#    max-connections: 8192
-#    max-swallow-size: -1
-#    max-http-form-post-size: 10MB
-#
-jwt:
-#  secret: ${JWT_SECRET:absensi_jwt_secret_key_very_long_minimum_256_bits_production_change_this}
-  secret: absensi_jwt_secret_min_32chars_production_2024_change_this_immediately
-  refresh-expiration: 604800000  # 7 hari dalam ms
-  expiration: 86400000       # 24 jam dalam ms
-  blacklist-prefix: "jwt:blacklist:"
-  token-prefix: "jwt:token:"
-
-#app:
-#  foto:
-#    upload-dir: ${UPLOAD_DIR:./uploads/foto}
-#    max-size: 3145728  # 3 MB
-#    async-upload: true
-#  lokasi:
-#    radius-toleransi: 100  # meter
-#    min-accuracy: 50       # minimum akurasi GPS (meter)
-#    max-mock-speed: 50     # kecepatan max wajar (m/s)
-#  absensi:
-#    interval-minimal: 60   # detik jeda antar absen (anti spam)
-#  rate-limit:
-#    login-per-menit: 5
-#    absen-per-menit: 3
-#
-#management:
-#  endpoints:
-#    web:
-#      exposure:
-#        include: health,info,metrics
-#  endpoint:
-#    health:
-#      show-details: when-authorized
-#  metrics:
-#    export:
-#      prometheus:
-#        enabled: true
-#
-#springdoc:
-#  api-docs:
-#    path: /v3/api-docs
-#    enabled: true
-#  swagger-ui:
-#    path: /swagger-ui.html
-#    enabled: true
-#    tags-sorter: alpha        # Urutkan tag secara alfabetis
-#    operations-sorter: alpha  # Urutkan operasi secara alfabetis
-#    display-request-duration: true
-#    default-models-expand-depth: 2
-#    try-it-out-enabled: true  # Aktifkan Try it out secara default
-#    filter: true              # Aktifkan filter/search di Swagger UI
-#    persist-authorization: true  # Simpan token JWT meski halaman di-refresh
-#  show-actuator: false
-#  packages-to-scan: com.absensi.absensi_app.controller
-
 spring:
+  application:
+    name: absensi-app
+
   datasource:
     url: jdbc:postgresql://localhost:5432/absensi_db
     username: postgres
     password: masuk123
-
+    driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      auto-commit: false
+      maximum-pool-size: 15
+      minimum-idle: 5
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 900000
+      # Tuning penting untuk spike traffic
+      keepalive-time: 60000
+      validation-timeout: 3000
+      leak-detection-threshold: 15000  # Deteksi koneksi bocor setelah 15 detik
 
   jpa:
     hibernate:
-      ddl-auto: update
-
+#      ddl-auto: update
+       ddl-auto: validate
+    show-sql: false
     open-in-view: false
-
     properties:
       hibernate:
-        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        generate_statistics: false
 
   data:
     redis:
       host: localhost
       port: 6379
+      timeout: 1000ms
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 20
+          max-idle: 10
+          min-idle: 2
+          max-wait: 500ms
 
-logging:
-  level:
-    org.hibernate.SQL: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 7MB
+      file-size-threshold: 1MB
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000
+
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 20
+        queue-capacity: 500
+        keep-alive: 60s
+      thread-name-prefix: "async-"
+    scheduling:
+      pool:
+        size: 2
+
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+  tomcat:
+    threads:
+      max: 100
+      min-spare: 10
+    accept-count: 100
+    connection-timeout: 10000
+    max-connections: 8192
+    max-swallow-size: -1
+    max-http-form-post-size: 10MB
+
+jwt:
+  secret: K7m!9pQx2vZ8sLd4nT6cR1yH5bJ0wE3uA9oP2xM7kL4sF8dN6qW1rT5yU9iO3p
+  refresh-expiration: 604800000  # 7 hari dalam ms
+  expiration: 86400000       # 24 jam dalam ms
+  blacklist-prefix: "jwt:blacklist:"
+  token-prefix: "jwt:token:"
+
+app:
+  foto:
+    upload-dir: /opt/absensi/uploads/foto
+    max-size: 3145728  # 3 MB
+    async-upload: true
+  lokasi:
+    radius-toleransi: 100  # meter
+    min-accuracy: 50       # minimum akurasi GPS (meter)
+    max-mock-speed: 50     # kecepatan max wajar (m/s)
+  absensi:
+    interval-minimal: 60   # detik jeda antar absen (anti spam)
+  rate-limit:
+    login-per-menit: 5
+    absen-per-menit: 3
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    tags-sorter: alpha        # Urutkan tag secara alfabetis
+    operations-sorter: alpha  # Urutkan operasi secara alfabetis
+    display-request-duration: true
+    default-models-expand-depth: 2
+    try-it-out-enabled: true  # Aktifkan Try it out secara default
+    filter: true              # Aktifkan filter/search di Swagger UI
+    persist-authorization: true  # Simpan token JWT meski halaman di-refresh
+  show-actuator: false
+  packages-to-scan: com.absensi.absensi_app.controller
+
+#spring:
+#  datasource:
+#    url: jdbc:postgresql://localhost:5432/absensi_db
+#    username: postgres
+#    password: masuk123
+#
+#    hikari:
+#      maximum-pool-size: 10
+#      minimum-idle: 2
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: update
+#
+#    open-in-view: false
+#
+#    properties:
+#      hibernate:
+#        format_sql: true
+#
+#  data:
+#    redis:
+#      host: localhost
+#      port: 6379
+#
+#logging:
+#  level:
+#    org.hibernate.SQL: DEBUG
+#    org.hibernate.orm.jdbc.bind: TRACE

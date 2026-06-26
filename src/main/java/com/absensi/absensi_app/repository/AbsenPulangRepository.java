@@ -1,5 +1,6 @@
 package com.absensi.absensi_app.repository;
 
+import com.absensi.absensi_app.entity.AbsenMasuk;
 import com.absensi.absensi_app.entity.AbsenPulang;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -21,6 +22,21 @@ public interface AbsenPulangRepository extends JpaRepository<AbsenPulang, Long>,
 
     List<AbsenPulang> findByUserIdAndTanggalBetweenOrderByTanggalDesc(
             Long userId, LocalDate dari, LocalDate sampai);
+
+    @Query("""
+    SELECT a FROM AbsenPulang a
+    LEFT JOIN FETCH a.user
+    LEFT JOIN FETCH a.shift
+    LEFT JOIN FETCH a.opd
+    WHERE a.opd.id = :opdId
+      AND a.tanggal BETWEEN :dari AND :sampai
+    ORDER BY a.tanggal ASC, a.waktuPulang ASC
+""")
+    List<AbsenPulang> findByOpdIdAndTanggalBetween(
+            @Param("opdId") Long opdId,
+            @Param("dari") LocalDate dari,
+            @Param("sampai") LocalDate sampai
+    );
 
     Optional<AbsenPulang> findByAbsenMasukId(Long absenMasukId);
 

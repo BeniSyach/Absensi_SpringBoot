@@ -10,6 +10,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.DayOfWeek;
+import java.util.Collections;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,15 +44,20 @@ public class AdminService {
 
         return shiftRepository.findByOpdIdAndAktifTrue(opdId)
                 .stream()
-                .map(s -> ShiftResponse.builder()
-                        .id(s.getId())
-                        .nama(s.getNama())
-                        .jamMasuk(s.getJamMasuk())
-                        .jamPulang(s.getJamPulang())
-                        .toleransiTerlambat(s.getToleransiTerlambat())
-                        .toleransiPulangAwal(s.getToleransiPulangAwal())
-                        .build()
-                )
+                .map(s -> {
+
+                    Set<String> hariKerja = Collections.emptySet();
+
+                    return ShiftResponse.builder()
+                            .id(s.getId())
+                            .nama(s.getNama())
+                            .jamMasuk(s.getJamMasuk())
+                            .jamPulang(s.getJamPulang())
+                            .toleransiTerlambat(s.getToleransiTerlambat())
+                            .toleransiPulangAwal(s.getToleransiPulangAwal())
+                            .namaOpd(s.getOpd().getNama())
+                            .build();
+                })
                 .toList();
     }
 }
