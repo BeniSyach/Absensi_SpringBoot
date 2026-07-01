@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import java.util.TimeZone;
 
 @SpringBootApplication
 @EnableCaching
@@ -13,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class AbsensiAppApplication {
 
 	public static void main(String[] args) {
+		TimeZone.setDefault(TimeZone.getTimeZone("Asia/Jakarta"));
 		SpringApplication.run(AbsensiAppApplication.class, args);
 	}
 

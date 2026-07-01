@@ -20,9 +20,6 @@ public interface AbsenPulangRepository extends JpaRepository<AbsenPulang, Long>,
 
     boolean existsByUserIdAndTanggal(Long userId, LocalDate tanggal);
 
-    List<AbsenPulang> findByUserIdAndTanggalBetweenOrderByTanggalDesc(
-            Long userId, LocalDate dari, LocalDate sampai);
-
     @Query("""
     SELECT a FROM AbsenPulang a
     LEFT JOIN FETCH a.user
@@ -38,9 +35,23 @@ public interface AbsenPulangRepository extends JpaRepository<AbsenPulang, Long>,
             @Param("sampai") LocalDate sampai
     );
 
+    /** Cari pulang berdasarkan absen masuk — penting untuk shift lintas hari */
     Optional<AbsenPulang> findByAbsenMasukId(Long absenMasukId);
 
-    @Query("SELECT a FROM AbsenPulang a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.shift " +
-            "WHERE a.opd.id = :opdId AND a.tanggal = :tanggal ORDER BY a.waktuPulang")
-    List<AbsenPulang> findByOpdIdAndTanggal(@Param("opdId") Long opdId, @Param("tanggal") LocalDate tanggal);
+    List<AbsenPulang> findByUserIdAndTanggalBetweenOrderByTanggalDesc(
+            Long userId, LocalDate dari, LocalDate sampai);
+
+    @Query("""
+        SELECT a FROM AbsenPulang a
+        LEFT JOIN FETCH a.user
+        LEFT JOIN FETCH a.shift
+        WHERE a.opd.id = :opdId
+          AND a.tanggal = :tanggal
+        ORDER BY a.waktuPulang
+    """)
+    List<AbsenPulang> findByOpdIdAndTanggal(
+            @Param("opdId") Long opdId,
+            @Param("tanggal") LocalDate tanggal);
+
+
 }

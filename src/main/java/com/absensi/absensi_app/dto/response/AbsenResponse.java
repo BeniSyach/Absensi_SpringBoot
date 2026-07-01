@@ -25,5 +25,10 @@ public class AbsenResponse {
     private String pesan;
     private Integer durasiKerjaMenit; // hanya untuk pulang
     private UserResponse user;
+
+    // Info shift yang dipakai
+    private Long shiftId;
+    private String shiftNama;
+    private Boolean shiftLintasHari;
 }
 

@@ -15,11 +15,15 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -105,22 +109,37 @@ public class AdminController {
     // === Shift Management ===
 
     @GetMapping("/shift/{opdId}")
-    public ResponseEntity<ApiResponse<List<ShiftResponse>>> daftarShift(@PathVariable Long opdId) {
+    @Operation(summary = "Daftar shift per OPD",
+            description = "Tampilkan semua shift (aktif & nonaktif) milik OPD tertentu, diurutkan jam masuk")
+    public ResponseEntity<ApiResponse<List<ShiftResponse>>> daftarShift(
+            @PathVariable Long opdId) {
 
-        return ResponseEntity.ok(
-                ApiResponse.sukses(
-                        adminService.getShiftByOpd(opdId),
-                        "Daftar shift"
-                )
-        );
+        List<ShiftResponse> shifts = shiftRepository.findByOpdIdOrderByJamMasukAsc(opdId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.sukses(shifts, "Daftar shift"));
     }
 
     @PostMapping("/shift")
-    public ResponseEntity<?> tambahShift(
-            @RequestBody ShiftRequest request) {
+    @Operation(
+            summary = "Buat shift baru",
+            description = """
+            Admin membuat shift baru untuk suatu OPD.
+            
+            **Field `lintasHari` dihitung otomatis** berdasarkan jam masuk dan jam pulang —
+            tidak perlu diisi manual. Contoh:
+            - Shift pagi  07:30–16:00 → lintasHari = false
+            - Shift siang 12:00–20:00 → lintasHari = false  
+            - Shift malam 20:00–04:00 → lintasHari = **true** (04:00 < 20:00)
+            """
+    )
+    public ResponseEntity<ApiResponse<ShiftResponse>> buatShift(
+            @Valid @RequestBody ShiftRequest request) {
 
         Opd opd = opdRepository.findById(request.getOpdId())
-                .orElseThrow();
+                .orElseThrow(() -> new AbsensiException("OPD tidak ditemukan"));
 
         Shift shift = Shift.builder()
                 .nama(request.getNama())
@@ -128,48 +147,23 @@ public class AdminController {
                 .jamPulang(request.getJamPulang())
                 .toleransiTerlambat(request.getToleransiTerlambat())
                 .toleransiPulangAwal(request.getToleransiPulangAwal())
-                .aktif(request.getAktif())
                 .opd(opd)
+                .aktif(true)
                 .build();
 
-        shift = shiftRepository.save(shift);
+        // lintasHari dihitung otomatis oleh @PrePersist di entity
+        Shift saved = shiftRepository.save(shift);
 
-        if (request.getUserId() != null) {
-
-            User user = userRepository.findById(request.getUserId())
-                    .orElseThrow();
-
-            WaktuKerja waktuKerja = WaktuKerja.builder()
-                    .shift(shift)
-                    .user(user)
-                    .hariKerja(request.getHariKerja())
-                    .tanggalMulai(request.getTanggalMulai())
-                    .tanggalSelesai(request.getTanggalSelesai())
-                    .aktif(true)
-                    .build();
-
-            waktuKerjaRepository.save(waktuKerja);
-        }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", shift.getId());
-        response.put("nama", shift.getNama());
-        response.put("jamMasuk", shift.getJamMasuk());
-        response.put("jamPulang", shift.getJamPulang());
-        response.put("toleransiTerlambat", shift.getToleransiTerlambat());
-        response.put("toleransiPulangAwal", shift.getToleransiPulangAwal());
-        response.put("aktif", shift.getAktif());
-        response.put("opdId", shift.getOpd().getId());
-
-        return ResponseEntity.ok(
-                ApiResponse.sukses(response, "Shift berhasil dibuat")
-        );
+        return ResponseEntity.ok(ApiResponse.sukses(toResponse(saved),
+                "Shift berhasil dibuat. lintasHari: " + saved.getLintasHari()));
     }
 
     @PutMapping("/shift/{id}")
-    public ResponseEntity<?> updateShift(
+    @Operation(summary = "Update shift",
+            description = "Ubah nama, jam, atau toleransi. `lintasHari` otomatis dihitung ulang.")
+    public ResponseEntity<ApiResponse<ShiftResponse>> updateShift(
             @PathVariable Long id,
-            @RequestBody ShiftRequest request) {
+            @Valid @RequestBody ShiftRequest request) {
 
         Shift shift = shiftRepository.findById(id)
                 .orElseThrow(() -> new AbsensiException("Shift tidak ditemukan"));
@@ -182,64 +176,44 @@ public class AdminController {
         shift.setJamPulang(request.getJamPulang());
         shift.setToleransiTerlambat(request.getToleransiTerlambat());
         shift.setToleransiPulangAwal(request.getToleransiPulangAwal());
-        shift.setAktif(request.getAktif());
         shift.setOpd(opd);
+        // lintasHari dihitung ulang oleh @PreUpdate
 
-        Shift savedShift = shiftRepository.save(shift);
-
-        // Update waktu kerja jika dikirim userId
-        if (request.getUserId() != null) {
-
-            WaktuKerja waktuKerja = waktuKerjaRepository
-                    .findByShiftIdAndUserId(savedShift.getId(), request.getUserId())
-                    .orElse(null);
-
-            if (waktuKerja == null) {
-
-                User user = userRepository.findById(request.getUserId())
-                        .orElseThrow(() -> new AbsensiException("User tidak ditemukan"));
-
-                waktuKerja = new WaktuKerja();
-                waktuKerja.setShift(savedShift);
-                waktuKerja.setUser(user);
-            }
-
-            waktuKerja.setHariKerja(request.getHariKerja());
-            waktuKerja.setTanggalMulai(request.getTanggalMulai());
-            waktuKerja.setTanggalSelesai(request.getTanggalSelesai());
-            waktuKerja.setAktif(true);
-
-            waktuKerjaRepository.save(waktuKerja);
-        }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", savedShift.getId());
-        response.put("nama", savedShift.getNama());
-        response.put("jamMasuk", savedShift.getJamMasuk());
-        response.put("jamPulang", savedShift.getJamPulang());
-        response.put("toleransiTerlambat", savedShift.getToleransiTerlambat());
-        response.put("toleransiPulangAwal", savedShift.getToleransiPulangAwal());
-        response.put("aktif", savedShift.getAktif());
-        response.put("opdId", savedShift.getOpd().getId());
-
-        return ResponseEntity.ok(
-                ApiResponse.sukses(response, "Shift berhasil diperbarui")
-        );
+        return ResponseEntity.ok(ApiResponse.sukses(toResponse(shiftRepository.save(shift)),
+                "Shift diperbarui"));
     }
 
-    @DeleteMapping("/shift/{id}")
-    public ResponseEntity<ApiResponse<?>> hapusShift(@PathVariable Long id) {
-
+    @DeleteMapping("/shift/{id}/nonaktifkan")
+    @Operation(summary = "Nonaktifkan shift",
+            description = "Shift tidak akan muncul di dropdown pegawai, tapi data historis tetap ada")
+    public ResponseEntity<ApiResponse<Void>> nonaktifkanShift(@PathVariable Long id) {
         Shift shift = shiftRepository.findById(id)
                 .orElseThrow(() -> new AbsensiException("Shift tidak ditemukan"));
-
         shift.setAktif(false);
-
         shiftRepository.save(shift);
+        return ResponseEntity.ok(ApiResponse.sukses(null, "Shift dinonaktifkan"));
+    }
+    @PutMapping("/shift/{id}/aktifkan")
+    @Operation(summary = "Aktifkan kembali shift")
+    public ResponseEntity<ApiResponse<Void>> aktifkanShift(@PathVariable Long id) {
+        Shift shift = shiftRepository.findById(id)
+                .orElseThrow(() -> new AbsensiException("Shift tidak ditemukan"));
+        shift.setAktif(true);
+        shiftRepository.save(shift);
+        return ResponseEntity.ok(ApiResponse.sukses(null, "Shift diaktifkan"));
+    }
 
-        return ResponseEntity.ok(
-                ApiResponse.sukses(null, "Shift berhasil dihapus")
-        );
+    private ShiftResponse toResponse(Shift s) {
+        return ShiftResponse.builder()
+                .id(s.getId())
+                .nama(s.getNama())
+                .jamMasuk(s.getJamMasuk())
+                .jamPulang(s.getJamPulang())
+                .toleransiTerlambat(s.getToleransiTerlambat())
+                .toleransiPulangAwal(s.getToleransiPulangAwal())
+                .lintasHari(s.getLintasHari())
+                .aktif(s.getAktif())
+                .build();
     }
 
     // === Laporan Absensi (Admin) ===

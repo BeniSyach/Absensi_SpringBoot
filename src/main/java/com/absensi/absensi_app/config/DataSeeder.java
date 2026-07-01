@@ -20,11 +20,10 @@ import java.util.Set;
 @Slf4j
 public class DataSeeder implements CommandLineRunner {
 
-    private final UserRepository userRepository;
-    private final OpdRepository opdRepository;
-    private final ShiftRepository shiftRepository;
-    private final WaktuKerjaRepository waktuKerjaRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UserRepository     userRepository;
+    private final OpdRepository      opdRepository;
+    private final ShiftRepository    shiftRepository;
+    private final PasswordEncoder    passwordEncoder;
 
     @Override
     @Transactional
@@ -36,32 +35,21 @@ public class DataSeeder implements CommandLineRunner {
 
         log.info("Membuat data awal...");
 
-        // === 1. Buat OPD Contoh ===
-        Opd opd = Opd.builder()
+        // ── 1. OPD ──
+        Opd opd = opdRepository.save(Opd.builder()
                 .kode("SEKRETARIAT")
                 .nama("Sekretariat Daerah")
                 .alamat("Jl. Kapten Maulana Lubis No.2, Medan")
-                // Koordinat Balai Kota Medan sebagai contoh
                 .latitudeKantor(3.5952)
                 .longitudeKantor(98.6722)
                 .radiusAbsen(100)
                 .aktif(true)
-                .build();
-        opd = opdRepository.save(opd);
+                .build());
 
-        Opd opdDinas = Opd.builder()
-                .kode("DISHUB")
-                .nama("Dinas Perhubungan")
-                .alamat("Jl. Pintu Air IV, Medan")
-                .latitudeKantor(3.5870)
-                .longitudeKantor(98.6800)
-                .radiusAbsen(150)
-                .aktif(true)
-                .build();
-        opdDinas = opdRepository.save(opdDinas);
+        // ── 2. Tiga shift — lintasHari dihitung otomatis ──
 
-        // === 2. Buat Shift ===
-        Shift shiftPagi = Shift.builder()
+        // Shift Pagi: 07:30 → 16:00, lintasHari = false
+        shiftRepository.save(Shift.builder()
                 .nama("Shift Pagi")
                 .jamMasuk(LocalTime.of(7, 30))
                 .jamPulang(LocalTime.of(16, 0))
@@ -69,10 +57,10 @@ public class DataSeeder implements CommandLineRunner {
                 .toleransiPulangAwal(10)
                 .opd(opd)
                 .aktif(true)
-                .build();
-        shiftPagi = shiftRepository.save(shiftPagi);
+                .build());
 
-        Shift shiftSiang = Shift.builder()
+        // Shift Siang: 12:00 → 20:00, lintasHari = false
+        shiftRepository.save(Shift.builder()
                 .nama("Shift Siang")
                 .jamMasuk(LocalTime.of(12, 0))
                 .jamPulang(LocalTime.of(20, 0))
@@ -80,73 +68,74 @@ public class DataSeeder implements CommandLineRunner {
                 .toleransiPulangAwal(10)
                 .opd(opd)
                 .aktif(true)
-                .build();
-        shiftRepository.save(shiftSiang);
+                .build());
 
-        // === 3. Buat User Admin ===
-        User admin = User.builder()
+        // Shift Malam: 20:00 → 04:00, lintasHari = TRUE (04:00 < 20:00)
+        shiftRepository.save(Shift.builder()
+                .nama("Shift Malam")
+                .jamMasuk(LocalTime.of(20, 0))
+                .jamPulang(LocalTime.of(4, 0))
+                .toleransiTerlambat(15)
+                .toleransiPulangAwal(10)
+                .opd(opd)
+                .aktif(true)
+                .build());
+
+        // ── 3. User admin ──
+        userRepository.save(User.builder()
                 .nip("000000000000000001")
                 .username("admin")
                 .password(passwordEncoder.encode("Admin123!"))
                 .namaLengkap("Administrator Sistem")
                 .email("admin@absensi.go.id")
-                .telepon("0811111111")
                 .opd(opd)
                 .role(Role.ROLE_ADMIN)
                 .aktif(true)
-                .build();
-        admin = userRepository.save(admin);
+                .build());
 
-        // === 4. Buat User Pimpinan ===
-        User pimpinan = User.builder()
+        // ── 4. User pimpinan ──
+        userRepository.save(User.builder()
                 .nip("198501012010011001")
                 .username("pimpinan")
                 .password(passwordEncoder.encode("Pimpinan123!"))
                 .namaLengkap("Kepala Dinas")
                 .email("pimpinan@absensi.go.id")
-                .telepon("0822222222")
                 .opd(opd)
                 .role(Role.ROLE_PIMPINAN)
                 .aktif(true)
-                .build();
-        pimpinan = userRepository.save(pimpinan);
+                .build());
 
-        // === 5. Buat User Pegawai Contoh ===
-        User pegawai = User.builder()
-                .nip("199001012020121001")
-                .username("budi.santoso")
-                .password(passwordEncoder.encode("User123!"))
-                .namaLengkap("Budi Santoso")
-                .email("budi.santoso@absensi.go.id")
-                .telepon("0833333333")
-                .opd(opd)
-                .role(Role.ROLE_USER)
-                .aktif(true)
-                .build();
-        pegawai = userRepository.save(pegawai);
+        // ── 5. Beberapa pegawai contoh ──
+        String[] nips  = {"199001012020121001", "199501012021121001", "200001012022121001"};
+        String[] names = {"Budi Santoso", "Siti Rahayu", "Ahmad Fauzi"};
+        String[] users = {"budi.santoso", "siti.rahayu", "ahmad.fauzi"};
 
-        // === 6. Assign Shift ke Pegawai ===
-        WaktuKerja waktuKerja = WaktuKerja.builder()
-                .user(pegawai)
-                .shift(shiftPagi)
-                .hariKerja(Set.of(
-                        DayOfWeek.MONDAY,
-                        DayOfWeek.TUESDAY,
-                        DayOfWeek.WEDNESDAY,
-                        DayOfWeek.THURSDAY,
-                        DayOfWeek.FRIDAY))
-                .tanggalMulai(LocalDate.now().withDayOfYear(1))
-                .aktif(true)
-                .build();
-        waktuKerjaRepository.save(waktuKerja);
+        for (int i = 0; i < nips.length; i++) {
+            userRepository.save(User.builder()
+                    .nip(nips[i])
+                    .username(users[i])
+                    .password(passwordEncoder.encode("User123!"))
+                    .namaLengkap(names[i])
+                    .opd(opd)
+                    .role(Role.ROLE_USER)
+                    .aktif(true)
+                    .build());
+        }
 
         log.info("========================================");
         log.info("✅ Data awal berhasil dibuat!");
-        log.info("🔐 Akun yang tersedia:");
-        log.info("   Admin    → username: admin        | password: Admin123!");
-        log.info("   Pimpinan → username: pimpinan     | password: Pimpinan123!");
-        log.info("   Pegawai  → username: budi.santoso | password: User123!");
-        log.info("📖 Swagger UI: http://localhost:8080/swagger-ui.html");
+        log.info("");
+        log.info("🔐 Akun:");
+        log.info("  Admin    → admin        / Admin123!");
+        log.info("  Pimpinan → pimpinan     / Pimpinan123!");
+        log.info("  Pegawai  → budi.santoso / User123!");
+        log.info("");
+        log.info("🕐 Shift yang dibuat (pegawai pilih sendiri saat absen):");
+        log.info("  🌅 Shift Pagi  : 07:30–16:00 (tidak lintas hari)");
+        log.info("  ☀ Shift Siang : 12:00–20:00 (tidak lintas hari)");
+        log.info("  🌙 Shift Malam : 20:00–04:00 (LINTAS HARI)");
+        log.info("");
+        log.info("📖 Swagger: http://localhost:8080/swagger-ui.html");
         log.info("========================================");
     }
 }
