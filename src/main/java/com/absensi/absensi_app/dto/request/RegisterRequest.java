@@ -34,6 +34,9 @@ public class RegisterRequest {
     @NotNull(message = "OPD wajib dipilih")
     private Long opdId;
 
+    @NotNull(message = "Shift wajib dipilih")
+    private Long shiftId;
+
     // Device ID perangkat Android
     private String deviceId;
 

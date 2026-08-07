@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/admin/user")
 @RequiredArgsConstructor
@@ -111,5 +113,25 @@ public class AdminUserController {
     public ResponseEntity<ApiResponse<Void>> paksaLogout(@PathVariable Long id) {
         userService.adminPaksiLogout(id);
         return ResponseEntity.ok(ApiResponse.sukses(null, "User berhasil dipaksa logout"));
+    }
+
+    @GetMapping("/shift")
+    @Operation(
+            summary = "Daftar shift",
+            description = "Mengambil daftar shift aktif untuk pilihan saat membuat atau mengubah user"
+    )
+    public ResponseEntity<ApiResponse<List<ShiftResponse>>> daftarShift(
+            @RequestParam(required = false) Long opdId
+    ) {
+
+        List<ShiftResponse> result =
+                userService.daftarShift(opdId);
+
+        return ResponseEntity.ok(
+                ApiResponse.sukses(
+                        result,
+                        "Daftar shift"
+                )
+        );
     }
 }

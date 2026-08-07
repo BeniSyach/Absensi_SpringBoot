@@ -27,14 +27,17 @@ public class AuthService {
     public LoginResponse login(LoginRequest request, String ipAddress) {
         try {
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername(),
+                            request.getPassword()
+                    )
             );
         } catch (AuthenticationException e) {
             log.warn("Login gagal untuk username: {} dari IP: {}", request.getUsername(), ipAddress);
             throw new AbsensiException("Username atau password salah");
         }
 
-        User user = userRepository.findActiveByUsername(request.getUsername())
+        User user = userRepository.findActiveByUsernameOrNip(request.getUsername())
                 .orElseThrow(() -> new AbsensiException("User tidak ditemukan atau tidak aktif"));
 
         // Update device ID jika ada

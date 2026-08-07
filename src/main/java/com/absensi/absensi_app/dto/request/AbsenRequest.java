@@ -10,7 +10,7 @@ public class AbsenRequest {
     @NotNull(message = "Data lokasi wajib diisi")
     @Valid
     private LokasiRequest lokasi;
-    private Long shiftId;
+    private Long waktuKerjaId;
 
     // Foto diupload sebagai multipart, disimpan terpisah
     // Field ini diisi setelah upload foto

@@ -2,6 +2,7 @@ package com.absensi.absensi_app.config;
 
 import com.absensi.absensi_app.filter.JwtAuthFilter;
 import com.absensi.absensi_app.repository.UserRepository;
+import com.absensi.absensi_app.security.JwtAuthenticationEntryPoint;
 import com.absensi.absensi_app.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -37,6 +38,8 @@ public class SecurityConfig {
     @Lazy
     private final JwtAuthFilter jwtAuthFilter;
 
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
     private final UserRepository userRepository;
 
     private final CustomUserDetailsService userDetailsService;
@@ -48,6 +51,9 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/**",

@@ -25,4 +25,5 @@ public class UserDetailResponse {
     private ShiftResponse shiftAktif;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private ShiftResponse shift;
 }

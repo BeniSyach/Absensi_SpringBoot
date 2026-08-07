@@ -2,7 +2,9 @@ package com.absensi.absensi_app.controller;
 
 import com.absensi.absensi_app.dto.request.*;
 import com.absensi.absensi_app.dto.response.*;
+import com.absensi.absensi_app.entity.User;
 import com.absensi.absensi_app.exception.AbsensiException;
+import com.absensi.absensi_app.repository.UserRepository;
 import com.absensi.absensi_app.service.impl.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/user")
 @RequiredArgsConstructor
@@ -26,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class UserController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
 
     @GetMapping("/profil")
     @Operation(summary = "Lihat profil saya", description = "Menampilkan data profil lengkap user yang sedang login termasuk shift hari ini")
@@ -84,5 +89,32 @@ public class UserController {
         Object userId = request.getAttribute("userId");
         if (userId == null) throw new AbsensiException("Sesi tidak valid");
         return ((Number) userId).longValue();
+    }
+
+    @GetMapping("/shift")
+    @Operation(summary = "Daftar user beserta shift")
+    public ResponseEntity<ApiResponse<List<UserShiftResponse>>> getUserShift(){
+
+        List<UserShiftResponse> result =
+                userRepository.findAll()
+                        .stream()
+                        .map(this::mapUser)
+                        .toList();
+
+        return ResponseEntity.ok(
+                ApiResponse.sukses(result, "Data User")
+        );
+    }
+
+    private UserShiftResponse mapUser(User user){
+
+        return UserShiftResponse.builder()
+                .id(user.getId())
+                .nip(user.getNip())
+                .username(user.getUsername())
+                .namaLengkap(user.getNamaLengkap())
+                .shiftId(user.getShift() != null ? user.getShift().getId() : null)
+                .namaShift(user.getShift() != null ? user.getShift().getNama() : null)
+                .build();
     }
 }

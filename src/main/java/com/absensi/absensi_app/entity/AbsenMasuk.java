@@ -36,6 +36,10 @@ public class AbsenMasuk {
     @JoinColumn(name = "shift_id")
     private Shift shift;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "waktu_kerja_id")
+    private WaktuKerja waktuKerja;
+
     @Column(nullable = false)
     private LocalDate tanggal;
 

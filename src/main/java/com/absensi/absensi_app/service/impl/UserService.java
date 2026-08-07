@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -34,6 +35,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final FotoService fotoService;
     private final RedisTokenService redisTokenService;
+    private final ShiftRepository shiftRepository;
 
     // =============================================
     // REGISTRASI MANDIRI (user baru daftar sendiri)
@@ -252,6 +254,11 @@ public class UserService {
         Opd opd = opdRepository.findById(request.getOpdId())
                 .orElseThrow(() -> new AbsensiException("OPD tidak ditemukan"));
 
+        Shift shift = shiftRepository.findById(request.getShiftId())
+                .orElseThrow(() ->
+                        new RuntimeException("Shift tidak ditemukan")
+                );
+
         User user = User.builder()
                 .nip(request.getNip())
                 .username(request.getUsername())
@@ -260,6 +267,7 @@ public class UserService {
                 .email(request.getEmail())
                 .telepon(request.getTelepon())
                 .opd(opd)
+                .shift(shift)
                 .role(role != null ? role : Role.ROLE_USER)
                 .aktif(true)  // admin buat user langsung aktif
                 .deviceId(request.getDeviceId())
@@ -277,6 +285,17 @@ public class UserService {
         // Cek NIP duplikat kecuali milik sendiri
         if (!user.getNip().equals(request.getNip()) && userRepository.existsByNip(request.getNip())) {
             throw new AbsensiException("NIP sudah digunakan user lain");
+        }
+
+        if(request.getShiftId() != null){
+
+            Shift shift = shiftRepository.findById(
+                    request.getShiftId()
+            ).orElseThrow(
+                    () -> new RuntimeException("Shift tidak ditemukan")
+            );
+
+            user.setShift(shift);
         }
 
         Opd opd = opdRepository.findById(request.getOpdId())
@@ -365,26 +384,38 @@ public class UserService {
     }
 
     public UserDetailResponse mapToDetail(User user) {
-        // Cari shift aktif user hari ini
-        ShiftResponse shiftResponse = null;
-        try {
-            Optional<WaktuKerja> wk = waktuKerjaRepository.findAktifByUserAndHari(
-                    user.getId(), LocalDate.now(), LocalDate.now().getDayOfWeek());
-            if (wk.isPresent()) {
-                Shift shift = wk.get().getShift();
-                shiftResponse = ShiftResponse.builder()
-                        .id(shift.getId())
-                        .nama(shift.getNama())
-                        .jamMasuk(shift.getJamMasuk())
-                        .jamPulang(shift.getJamPulang())
-                        .toleransiTerlambat(shift.getToleransiTerlambat())
-                        .toleransiPulangAwal(shift.getToleransiPulangAwal())
-                        .hariKerja(wk.get().getHariKerja().stream()
-                                .map(Enum::name).collect(Collectors.toSet()))
-                        .build();
-            }
-        } catch (Exception ignored) {}
 
+        // ✅ 1. SHIFT MASTER yang di-assign ke user (untuk dropdown edit)
+        ShiftResponse shiftResponse = null;
+        if (user.getShift() != null) {
+            Shift shift = user.getShift();
+            List<WaktuKerjaResponse> listWaktuKerja = null;
+            if (shift.getWaktuKerja() != null) {
+                listWaktuKerja = shift.getWaktuKerja().stream()
+                        .map(wk -> WaktuKerjaResponse.builder()
+                                .id(wk.getId())
+                                .hari(wk.getHari())
+                                .jamMasuk(wk.getJamMasuk())
+                                .jamPulang(wk.getJamPulang())
+                                .toleransiTerlambat(wk.getToleransiTerlambat())
+                                .toleransiPulangAwal(wk.getToleransiPulangAwal())
+                                .lintasHari(wk.getLintasHari())
+                                .aktif(wk.getAktif())
+                                .build())
+                        .collect(Collectors.toList());
+            }
+
+            shiftResponse = ShiftResponse.builder()
+                    .id(shift.getId())
+                    .nama(shift.getNama())
+                    .aktif(shift.getAktif())
+                    .opdId(shift.getOpd() != null ? shift.getOpd().getId() : null)
+                    .namaOpd(shift.getOpd() != null ? shift.getOpd().getNama() : null)
+                    .waktuKerja(listWaktuKerja)
+                    .build();
+        }
+
+        // ✅ 3. OPD
         OpdResponse opdResponse = null;
         if (user.getOpd() != null) {
             opdResponse = OpdResponse.builder()
@@ -410,9 +441,30 @@ public class UserService {
                 .aktif(user.getAktif())
                 .deviceId(user.getDeviceId())
                 .opd(opdResponse)
-                .shiftAktif(shiftResponse)
+                .shift(shiftResponse)            // ← Shift master user
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+
+    public List<ShiftResponse> daftarShift(Long opdId) {
+
+        List<Shift> shifts;
+
+        if (opdId != null) {
+            shifts = shiftRepository.findByOpdIdAndAktifTrue(opdId);
+        } else {
+            shifts = shiftRepository.findByAktifTrue();
+        }
+
+
+        return shifts.stream()
+                .map(shift -> ShiftResponse.builder()
+                        .id(shift.getId())
+                        .nama(shift.getNama())
+                        .aktif(shift.getAktif())
+                        .build()
+                )
+                .toList();
     }
 }

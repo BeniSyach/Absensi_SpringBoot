@@ -72,8 +72,9 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<AbsenPulang> absenPulangList;
 
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
-    private List<WaktuKerja> waktuKerjaList;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shift_id")
+    private Shift shift;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

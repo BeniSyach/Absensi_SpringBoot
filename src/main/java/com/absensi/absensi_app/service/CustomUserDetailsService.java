@@ -17,7 +17,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username)
             throws UsernameNotFoundException {
 
-        return userRepository.findActiveByUsername(username)
+        return userRepository.findActiveByUsernameOrNip(username)
                 .orElseThrow(() ->
                         new UsernameNotFoundException(
                                 "User tidak ditemukan: " + username

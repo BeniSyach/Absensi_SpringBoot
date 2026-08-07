@@ -8,6 +8,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Set;
 
 @Entity
@@ -23,27 +24,23 @@ public class WaktuKerja {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shift_id", nullable = false)
+    @JoinColumn(name = "shift_id")
     private Shift shift;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(nullable = false, length = 50)
+    private String hari;
 
-    // Hari-hari kerja dalam seminggu (MONDAY, TUESDAY, ...)
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "waktu_kerja_hari", joinColumns = @JoinColumn(name = "waktu_kerja_id"))
-    @Enumerated(EnumType.STRING)
-    @Column(name = "hari")
-    private Set<DayOfWeek> hariKerja;
+    private LocalTime jamMasuk;
 
-    @Column(name = "tanggal_mulai", nullable = false)
-    private LocalDate tanggalMulai;
+    private LocalTime jamPulang;
 
-    @Column(name = "tanggal_selesai")
-    private LocalDate tanggalSelesai;
+    private Integer toleransiTerlambat;
 
-    @Column(name = "aktif")
+    private Integer toleransiPulangAwal;
+
+    private Boolean lintasHari;
+
+    @Column(nullable = false)
     @Builder.Default
     private Boolean aktif = true;
 

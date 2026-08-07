@@ -36,6 +36,10 @@ public class AbsenPulang {
     @JoinColumn(name = "shift_id")
     private Shift shift;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "waktu_kerja_id")
+    private WaktuKerja waktuKerja;
+
     // Relasi ke absen masuk hari ini
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "absen_masuk_id")

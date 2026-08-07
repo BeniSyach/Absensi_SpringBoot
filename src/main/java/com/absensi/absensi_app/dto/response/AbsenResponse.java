@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Data
 @Builder
@@ -29,6 +30,13 @@ public class AbsenResponse {
     // Info shift yang dipakai
     private Long shiftId;
     private String shiftNama;
-    private Boolean shiftLintasHari;
+
+    private Long waktuKerjaId;
+    private String hari;
+    private LocalTime jamMasuk;
+    private LocalTime jamPulang;
+    private Integer toleransiTerlambat;
+    private Integer toleransiPulangAwal;
+    private Boolean lintasHari;
 }
 

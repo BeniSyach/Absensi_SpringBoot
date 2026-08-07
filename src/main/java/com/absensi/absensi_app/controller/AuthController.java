@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -80,10 +81,32 @@ public class AuthController {
     @PostMapping("/refresh")
     @SecurityRequirements
     @Operation(summary = "Refresh access token", description = "Memperpanjang sesi menggunakan refresh token. Kirim refresh token di header X-Refresh-Token.")
-    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
-            @RequestHeader("X-Refresh-Token") String refreshToken) {
-        LoginResponse response = authService.refreshToken(refreshToken);
-        return ResponseEntity.ok(ApiResponse.sukses(response, "Token diperbarui"));
+    public ResponseEntity<ApiResponse<LoginResponse>> refreshTokenContoh(
+            @RequestHeader(value = "X-Refresh-Token", required = false) String refreshToken) {
+
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.<LoginResponse>builder()
+                            .success(false)
+                            .error("Refresh token tidak ditemukan")
+                            .build());
+        }
+
+        try {
+            // ... validasi & generate access token baru (logika existing Anda) ...
+             LoginResponse response = authService.refreshToken(refreshToken);
+             return ResponseEntity.ok(ApiResponse.sukses(response, "Token diperbarui"));
+            // throw new UnsupportedOperationException("Implementasi sesuai service Anda");
+
+        } catch (Exception e) {
+            // Refresh token expired / invalid / signature salah / user tidak ditemukan
+            // → SEMUA harus 401, bukan 400 atau 500
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.<LoginResponse>builder()
+                            .success(false)
+                            .error("Refresh token tidak valid atau sudah expired")
+                            .build());
+        }
     }
 
     private String getClientIp(HttpServletRequest request) {

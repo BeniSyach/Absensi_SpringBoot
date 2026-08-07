@@ -4,6 +4,7 @@ import com.absensi.absensi_app.dto.request.AbsenRequest;
 import com.absensi.absensi_app.dto.response.AbsenResponse;
 import com.absensi.absensi_app.dto.response.ShiftResponse;
 import com.absensi.absensi_app.dto.response.UserResponse;
+import com.absensi.absensi_app.dto.response.WaktuKerjaResponse;
 import com.absensi.absensi_app.entity.*;
 import com.absensi.absensi_app.enums.StatusAbsensi;
 import com.absensi.absensi_app.exception.AbsensiException;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +39,7 @@ public class AbsensiService {
     private final AbsenMasukRepository absenMasukRepository;
     private final AbsenPulangRepository absenPulangRepository;
     private final WaktuKerjaRepository waktuKerjaRepository;
-    private final ShiftRepository shiftRepository;
+
     private final UserRepository userRepository;
     private final LokasiUtil lokasiUtil;
     private final RedisTokenService redisTokenService;
@@ -50,35 +52,69 @@ public class AbsensiService {
      * Proses absen masuk dengan validasi lokasi & foto
      */
 
-    public List<ShiftResponse> daftarShiftAktif(Long userId) {
-        User user = findUser(userId);
-        Long opdId = user.getOpd().getId();
+    public ShiftResponse getShiftUser(Long userId) {
 
-        return shiftRepository.findByOpdIdAndAktifTrue(opdId)
-                .stream()
-                .map(s -> ShiftResponse.builder()
-                        .id(s.getId())
-                        .nama(s.getNama())
-                        .jamMasuk(s.getJamMasuk())
-                        .jamPulang(s.getJamPulang())
-                        .toleransiTerlambat(s.getToleransiTerlambat())
-                        .toleransiPulangAwal(s.getToleransiPulangAwal())
-                        .lintasHari(s.getLintasHari())
-                        .aktif(s.getAktif())
-                        .build())
-                .collect(Collectors.toList());
+        User user = findUser(userId);
+
+        Shift shift = user.getShift();
+
+        if (shift == null) {
+            throw new AbsensiException(
+                    "User belum memiliki shift"
+            );
+        }
+
+
+        return ShiftResponse.builder()
+                .id(shift.getId())
+                .nama(shift.getNama())
+                .aktif(shift.getAktif())
+                .waktuKerja(
+                        shift.getWaktuKerja()
+                                .stream()
+                                .map(w -> WaktuKerjaResponse.builder()
+                                        .id(w.getId())
+                                        .hari(w.getHari())
+                                        .jamMasuk(w.getJamMasuk())
+                                        .jamPulang(w.getJamPulang())
+                                        .toleransiTerlambat(
+                                                w.getToleransiTerlambat()
+                                        )
+                                        .toleransiPulangAwal(
+                                                w.getToleransiPulangAwal()
+                                        )
+                                        .lintasHari(
+                                                w.getLintasHari()
+                                        )
+                                        .aktif(
+                                                w.getAktif()
+                                        )
+                                        .build()
+                                )
+                                .toList()
+                )
+                .build();
     }
 
     @Transactional
     public AbsenResponse absenMasuk(Long userId, AbsenRequest request,
                                     MultipartFile foto, String ipAddress, String deviceInfo) {
 
-        if (request.getShiftId() == null) {
-            throw new AbsensiException("Pilih shift terlebih dahulu sebelum absen masuk");
-        }
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AbsensiException("User tidak ditemukan"));
+
+        WaktuKerja waktuKerja = waktuKerjaRepository.findById(
+                request.getWaktuKerjaId()
+        ).orElseThrow(() ->
+                new AbsensiException("Waktu kerja tidak ditemukan")
+        );
+
+        Shift shift = waktuKerja.getShift();
+        Shift userShift = user.getShift();
+
+        if (!waktuKerja.getShift().getId().equals(userShift.getId())) {
+            throw new AbsensiException("Waktu kerja tidak sesuai dengan shift Anda");
+        }
 
         LocalDate today = LocalDate.now();
 
@@ -89,9 +125,6 @@ public class AbsensiService {
 
         // Anti-spam: cek interval dari Redis
         cekIntervalAbsen(userId, "masuk");
-
-        Shift shift = shiftRepository.findById(request.getShiftId())
-                .orElseThrow(() -> new AbsensiException("Shift tidak ditemukan"));
 
         Opd opd = user.getOpd();
 
@@ -129,14 +162,14 @@ public class AbsensiService {
             throw new AbsensiException("Foto absen masuk wajib diisi");
         }
 
-
         // Tentukan status (hadir/terlambat)
-        StatusAbsensi status = tentukanStatusMasuk(shift);
+        StatusAbsensi status = tentukanStatusMasuk(waktuKerja);
 
         AbsenMasuk absenMasuk = AbsenMasuk.builder()
                 .user(user)
                 .opd(opd)
                 .shift(shift)
+                .waktuKerja(waktuKerja)
                 .tanggal(today)
                 .waktuMasuk(LocalDateTime.now())
                 .latitude(request.getLokasi().getLatitude())
@@ -182,6 +215,18 @@ public class AbsensiService {
                 .fotoAbsen(pathFoto)
                 .status(status)
                 .pesan(pesan)
+                // Shift
+                .shiftId(shift.getId())
+                .shiftNama(shift.getNama())
+
+                // Waktu Kerja
+                .waktuKerjaId(waktuKerja.getId())
+                .hari(waktuKerja.getHari())
+                .jamMasuk(waktuKerja.getJamMasuk())
+                .jamPulang(waktuKerja.getJamPulang())
+                .toleransiTerlambat(waktuKerja.getToleransiTerlambat())
+                .toleransiPulangAwal(waktuKerja.getToleransiPulangAwal())
+                .lintasHari(waktuKerja.getLintasHari())
                 .build();
     }
 
@@ -245,16 +290,24 @@ public class AbsensiService {
         int durasiMenit = (int) ChronoUnit.MINUTES.between(absenMasuk.getWaktuMasuk(), sekarang);
 
         Shift shift = absenMasuk.getShift();
-        StatusAbsensi status = tentukanStatusPulang(shift, sekarang);
+        WaktuKerja waktuKerja = absenMasuk.getWaktuKerja();
 
-        LocalDate tanggalPulang = Boolean.TRUE.equals(shift.getLintasHari())
-                ? absenMasuk.getTanggal()   // Ikut tanggal masuk
-                : tanggalHariIni();
+        if (waktuKerja == null) {
+            throw new AbsensiException("Data waktu kerja pada absen masuk tidak ditemukan");
+        }
+        StatusAbsensi status =
+                tentukanStatusPulang(waktuKerja, sekarang);
+
+        LocalDate tanggalPulang =
+                Boolean.TRUE.equals(waktuKerja.getLintasHari())
+                        ? absenMasuk.getTanggal()
+                        : LocalDate.now();
 
         AbsenPulang absenPulang = AbsenPulang.builder()
                 .user(user)
                 .opd(opd)
                 .shift(shift)
+                .waktuKerja(waktuKerja)
                 .absenMasuk(absenMasuk)
                 .tanggal(tanggalPulang)
                 .waktuPulang(sekarang)
@@ -298,6 +351,18 @@ public class AbsensiService {
                 .status(status)
                 .durasiKerjaMenit(durasiMenit)
                 .pesan(pesan)
+
+                .shiftId(shift.getId())
+                .shiftNama(shift.getNama())
+
+                .waktuKerjaId(waktuKerja.getId())
+                .hari(waktuKerja.getHari())
+                .jamMasuk(waktuKerja.getJamMasuk())
+                .jamPulang(waktuKerja.getJamPulang())
+                .toleransiTerlambat(waktuKerja.getToleransiTerlambat())
+                .toleransiPulangAwal(waktuKerja.getToleransiPulangAwal())
+                .lintasHari(waktuKerja.getLintasHari())
+
                 .build();
     }
 
@@ -305,68 +370,112 @@ public class AbsensiService {
      * Cek status absen hari ini
      */
     public Map<String, Object> statusHariIni(Long userId) {
+
         LocalDate today = tanggalHariIni();
 
-        // Cari absen masuk — termasuk dari kemarin untuk shift malam lintas hari
-        Optional<AbsenMasuk> masukOpt = absenMasukRepository.findByUserIdAndTanggal(userId, today);
+        Optional<AbsenMasuk> masukOpt =
+                absenMasukRepository.findByUserIdAndTanggal(userId, today);
 
-        // Jika tidak ada hari ini, cek kemarin (kemungkinan shift malam belum pulang)
         if (masukOpt.isEmpty()) {
-            masukOpt = absenMasukRepository.findByUserIdAndTanggal(userId, today.minusDays(1));
-            if (masukOpt.isPresent()) {
-                Shift shift = masukOpt.get().getShift();
-                // Hanya relevan jika memang shift lintas hari dan belum pulang
-                if (shift == null || !Boolean.TRUE.equals(shift.getLintasHari())) {
-                    masukOpt = Optional.empty();
+
+            Optional<AbsenMasuk> kemarin =
+                    absenMasukRepository.findByUserIdAndTanggal(
+                            userId,
+                            today.minusDays(1));
+
+            if (kemarin.isPresent()) {
+
+                WaktuKerja wk = kemarin.get().getWaktuKerja();
+
+                if (wk != null && Boolean.TRUE.equals(wk.getLintasHari())) {
+                    masukOpt = kemarin;
                 }
+
             }
         }
 
-        Optional<AbsenPulang> pulangOpt = masukOpt
-                .flatMap(m -> absenPulangRepository.findByAbsenMasukId(m.getId()));
+        Optional<AbsenPulang> pulangOpt =
+                masukOpt.flatMap(m ->
+                        absenPulangRepository.findByAbsenMasukId(m.getId()));
 
-        Map<String, Object> status = new java.util.LinkedHashMap<>();
+        Map<String, Object> status = new LinkedHashMap<>();
+
         status.put("tanggal", today);
         status.put("sudahAbsenMasuk", masukOpt.isPresent());
         status.put("sudahAbsenPulang", pulangOpt.isPresent());
 
         masukOpt.ifPresent(m -> {
+
+            WaktuKerja wk = m.getWaktuKerja();
+
             status.put("waktuMasuk", m.getWaktuMasuk());
             status.put("statusMasuk", m.getStatus());
-            status.put("shiftId", m.getShift() != null ? m.getShift().getId() : null);
-            status.put("shiftNama", m.getShift() != null ? m.getShift().getNama() : null);
-            status.put("shiftLintasHari", m.getShift() != null ? m.getShift().getLintasHari() : false);
+
+            if (wk != null) {
+
+                Shift shift = wk.getShift();
+
+                status.put("shiftId", shift != null ? shift.getId() : null);
+                status.put("shiftNama", shift != null ? shift.getNama() : null);
+
+                status.put("waktuKerjaId", wk.getId());
+                status.put("hari", wk.getHari());
+                status.put("jamMasuk", wk.getJamMasuk());
+                status.put("jamPulang", wk.getJamPulang());
+                status.put("lintasHari", wk.getLintasHari());
+
+            }
+
         });
 
         pulangOpt.ifPresent(p -> {
+
             status.put("waktuPulang", p.getWaktuPulang());
             status.put("statusPulang", p.getStatus());
             status.put("durasiKerjaMenit", p.getDurasiKerjaMenit());
+
         });
 
         return status;
     }
 
     private AbsenMasuk cariAbsenMasukAktif(Long userId, Long opdId) {
+
         LocalDate today = tanggalHariIni();
 
-        // Cari hari ini dulu
-        Optional<AbsenMasuk> masukHariIni = absenMasukRepository.findByUserIdAndTanggal(userId, today);
-        if (masukHariIni.isPresent()) return masukHariIni.get();
+        // Cari absen masuk hari ini
+        Optional<AbsenMasuk> masukHariIni =
+                absenMasukRepository.findByUserIdAndTanggal(userId, today);
 
-        // Cari kemarin — untuk shift malam lintas hari
-        Optional<AbsenMasuk> masukKemarin = absenMasukRepository.findByUserIdAndTanggal(userId, today.minusDays(1));
+        if (masukHariIni.isPresent()) {
+            return masukHariIni.get();
+        }
+
+        // Cari absen masuk kemarin (untuk shift lintas hari)
+        Optional<AbsenMasuk> masukKemarin =
+                absenMasukRepository.findByUserIdAndTanggal(userId, today.minusDays(1));
+
         if (masukKemarin.isPresent()) {
-            Shift shift = masukKemarin.get().getShift();
-            if (shift != null && Boolean.TRUE.equals(shift.getLintasHari())) {
-                // Pastikan belum ada pulang
-                boolean sudahPulang = absenPulangRepository
-                        .findByAbsenMasukId(masukKemarin.get().getId()).isPresent();
-                if (!sudahPulang) return masukKemarin.get();
+
+            AbsenMasuk absenMasuk = masukKemarin.get();
+            WaktuKerja waktuKerja = absenMasuk.getWaktuKerja();
+
+            if (waktuKerja != null && Boolean.TRUE.equals(waktuKerja.getLintasHari())) {
+
+                boolean sudahPulang =
+                        absenPulangRepository
+                                .findByAbsenMasukId(absenMasuk.getId())
+                                .isPresent();
+
+                if (!sudahPulang) {
+                    return absenMasuk;
+                }
             }
         }
 
-        throw new AbsensiException("Anda belum melakukan absen masuk. Absen masuk terlebih dahulu.");
+        throw new AbsensiException(
+                "Anda belum melakukan absen masuk. Absen masuk terlebih dahulu."
+        );
     }
 
     public List<AbsenResponse> getLaporan(Long opdId, LocalDate dari, LocalDate sampai) {
@@ -385,7 +494,14 @@ public class AbsensiService {
                         .mockLocationDetected(absen.getMockLocationDetected())
                         .fotoAbsen(absen.getFotoAbsen())
                         .status(absen.getStatus())
-                        // ⭐ USER MAPPING
+                        .shiftId(absen.getShift().getId())
+                        .shiftNama(absen.getShift().getNama())
+
+                        .waktuKerjaId(absen.getWaktuKerja().getId())
+                        .hari(absen.getWaktuKerja().getHari())
+                        .jamMasuk(absen.getWaktuKerja().getJamMasuk())
+                        .jamPulang(absen.getWaktuKerja().getJamPulang())
+                        .lintasHari(absen.getWaktuKerja().getLintasHari())
                         .user(UserResponse.builder()
                                 .namaLengkap(absen.getUser().getNamaLengkap())
                                 .nip(absen.getUser().getNip())
@@ -484,36 +600,43 @@ public class AbsensiService {
         redisTokenService.set(key, System.currentTimeMillis(), intervalMinimalDetik * 1000L);
     }
 
-    private Shift cariShiftAktif(Long userId, LocalDate tanggal) {
-        return waktuKerjaRepository
-                .findAktifByUserAndHari(userId, tanggal, tanggal.getDayOfWeek())
-                .map(WaktuKerja::getShift)
-                .orElse(null);
-    }
-
-    private StatusAbsensi tentukanStatusMasuk(Shift shift) {
+    private StatusAbsensi tentukanStatusMasuk(WaktuKerja wk) {
         LocalTime sekarang = LocalTime.now();
-        LocalTime batas    = shift.batasTerlambat();
+        LocalTime batas =
+                wk.getJamMasuk()
+                        .plusMinutes(wk.getToleransiTerlambat());
         return sekarang.isAfter(batas) ? StatusAbsensi.TERLAMBAT : StatusAbsensi.HADIR;
     }
 
-    private StatusAbsensi tentukanStatusPulang(Shift shift, LocalDateTime sekarang) {
+    private StatusAbsensi tentukanStatusPulang(
+            WaktuKerja wk,
+            LocalDateTime sekarang) {
         LocalTime jamSekarang = sekarang.toLocalTime();
-        LocalTime batas       = shift.batasPulangAwal();
+        LocalTime batas =
+                wk.getJamPulang()
+                        .minusMinutes(
+                                wk.getToleransiPulangAwal());
 
         // Shift lintas hari: jika jam pulang < jam masuk, jam pulang keesokan hari
         // Pegawai yang pulang subuh (misal jam 03:00) dianggap normal
-        if (Boolean.TRUE.equals(shift.getLintasHari())) {
-            // Jam pulang valid = antara jam masuk sd tengah malam, atau antara 00:00 sd jam pulang
-            boolean sesudahTengahMalam = jamSekarang.isBefore(shift.getJamPulang());
+        if (Boolean.TRUE.equals(wk.getLintasHari())) {
+
+            boolean sesudahTengahMalam =
+                    jamSekarang.isBefore(
+                            wk.getJamPulang());
+
             if (sesudahTengahMalam) {
-                // Pulang sebelum jam pulang resmi — cek batas pulang awal
-                return jamSekarang.isBefore(batas) ? StatusAbsensi.PULANG_AWAL : StatusAbsensi.HADIR;
+                return jamSekarang.isBefore(batas)
+                        ? StatusAbsensi.PULANG_AWAL
+                        : StatusAbsensi.HADIR;
             }
+
             return StatusAbsensi.HADIR;
         }
 
-        return jamSekarang.isBefore(batas) ? StatusAbsensi.PULANG_AWAL : StatusAbsensi.HADIR;
+        return jamSekarang.isBefore(batas)
+                ? StatusAbsensi.PULANG_AWAL
+                : StatusAbsensi.HADIR;
     }
 
     private String buildPesanAbsen(boolean lokasiValid, LokasiUtil.HasilValidasiLokasi validasi,

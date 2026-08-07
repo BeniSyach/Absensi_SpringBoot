@@ -24,10 +24,11 @@ public class AdminUpdateUserRequest {
     @NotNull(message = "OPD wajib dipilih")
     private Long opdId;
 
+    @NotNull(message = "Shift wajib dipilih")
+    private Long shiftId;
+
     private Role role;
 
     private Boolean aktif;
 
-    // Bisa digunakan untuk memindah shift user
-    private Long shiftId;
 }

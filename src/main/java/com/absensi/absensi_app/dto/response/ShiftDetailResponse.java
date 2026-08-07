@@ -7,17 +7,11 @@ import java.util.List;
 
 @Data
 @Builder
-public class ShiftResponse {
+public class ShiftDetailResponse {
 
     private Long id;
-
     private String nama;
-
     private Boolean aktif;
-
-    private Long opdId;
-
-    private String namaOpd;
 
     private List<WaktuKerjaResponse> waktuKerja;
 }

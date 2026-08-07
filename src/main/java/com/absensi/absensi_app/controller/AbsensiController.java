@@ -41,22 +41,27 @@ public class AbsensiController {
     // GET: daftar shift yang bisa dipilih pegawai
     // ─────────────────────────────────────────────────────────────
 
-    @GetMapping("/shift/available")
+    @GetMapping("/shift")
     @Operation(
-            summary = "Daftar shift yang tersedia",
+            summary = "Informasi shift user",
             description = """
-            Mengembalikan daftar shift aktif milik OPD user yang sedang login.
-            Digunakan Android untuk membangun dropdown pilih shift sebelum absen masuk.
-            
-            **Tidak perlu parameter** — server otomatis ambil OPD dari token JWT.
-            """
+        Mengambil shift yang sudah ditentukan untuk user yang login.
+        Termasuk informasi OPD dan waktu kerja.
+        """
     )
-    public ResponseEntity<ApiResponse<List<ShiftResponse>>> daftarShiftAvailable(
+    public ResponseEntity<ApiResponse<ShiftResponse>> getShiftUser(
             HttpServletRequest request) {
 
         Long userId = getUserId(request);
-        List<ShiftResponse> shifts = absensiService.daftarShiftAktif(userId);
-        return ResponseEntity.ok(ApiResponse.sukses(shifts, "Daftar shift tersedia"));
+
+        ShiftResponse shift = absensiService.getShiftUser(userId);
+
+        return ResponseEntity.ok(
+                ApiResponse.sukses(
+                        shift,
+                        "Data shift user"
+                )
+        );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -96,9 +101,9 @@ public class AbsensiController {
         AbsenRequest absenRequest = objectMapper.readValue(dataJson, AbsenRequest.class);
 
         // Validasi wajib: shiftId harus ada
-        if (absenRequest.getShiftId() == null) {
+        if (absenRequest.getWaktuKerjaId() == null) {
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.gagal("shiftId wajib diisi. Pilih shift terlebih dahulu."));
+                    .body(ApiResponse.gagal("waktuKerjaId wajib diisi."));
         }
 
         String ip         = getClientIp(request);
